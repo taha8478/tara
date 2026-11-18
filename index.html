@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fireflies Pendant · 3D</title>
+<style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#090b0b;color:#e5e2d8;font-family:Inter,system-ui,sans-serif}canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}.hud{position:fixed;inset:0;padding:clamp(16px,3vw,34px);display:flex;flex-direction:column;justify-content:space-between;pointer-events:none}.top,.bottom{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}.kicker{font-size:10px;letter-spacing:.24em;color:#a4a99f}.name{font-size:clamp(16px,2vw,21px);letter-spacing:.14em;margin-top:7px}.guide{text-align:right;color:#92988e;font-size:10px;letter-spacing:.1em;line-height:1.9}.bottom{align-items:end}.caption{font-size:9px;letter-spacing:.16em;line-height:1.9;color:#7c837a;text-transform:uppercase}.controls{pointer-events:auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}button{border:1px solid #ffffff27;background:#111716dc;color:#d8d8ce;border-radius:30px;padding:10px 14px;font:inherit;font-size:10px;letter-spacing:.08em;cursor:pointer;backdrop-filter:blur(10px)}button:hover{border-color:#a9b1a3;color:white}#msg{position:fixed;inset:0;z-index:3;background:#090b0b;display:grid;place-items:center;color:#aab0a4;font-size:10px;letter-spacing:.24em;transition:opacity .6s}#msg.hide{opacity:0;pointer-events:none}@media(max-width:560px){.guide{font-size:9px}.caption{max-width:110px;font-size:8px}.controls{max-width:220px}button{padding:9px 11px}}#msg{text-align:center;line-height:2;padding:30px}#msg.err{color:#d98d7c}.ld{display:flex;flex-direction:column;align-items:center;gap:14px;letter-spacing:.24em;font-size:10px;color:#85847f;text-transform:uppercase}
+.fly{width:6px;height:6px;border-radius:50%;background:#d9c37a;box-shadow:0 0 14px 4px #d9c37a88,0 0 40px 12px #d9c37a33;animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
+.lt{color:#b4b2ab;margin-top:10px}.ls{min-height:1.4em}.bar{width:170px;height:1px;background:#2a2a28}.bar b{display:block;height:100%;width:0;background:#b9a56a;transition:width .35s}
+.ln{font-size:9px;opacity:.5;letter-spacing:.14em}#msg.err .fly{animation:none;background:#d98d7c;box-shadow:0 0 14px 4px #d98d7c55}#msg.err .ls{color:#d98d7c;max-width:300px;line-height:1.8}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head><body>
+<div id="msg"><div class="ld"><i class="fly"></i><div class="lt">THE LAST OF US · FIREFLIES</div><div class="ls" id="st">LOADING 3D ENGINE</div><div class="bar"><b id="pb"></b></div><div class="ln">Internet connection required</div></div></div><div class="hud"><div class="top"><div><div class="kicker">THE LAST OF US · FIREFLIES</div><div class="name">LOOK FOR THE LIGHT</div></div><div class="guide">DRAG TO ROTATE<br>SCROLL / PINCH TO ZOOM<br>INSPECT BOTH SIDES</div></div><div class="bottom"><div class="caption">A recovered Firefly pendant<br>weathered by time</div><div class="controls"><button id="bF">FRONT</button><button id="bB">BACK</button><button id="bR">RESET</button></div></div></div>
+<script type="module">
+const msg=document.getElementById('msg');
+const st=document.getElementById('st'),pb=document.getElementById('pb');
+const prog=(n,t)=>{pb.style.width=n+'%';if(t)st.textContent=t};
+const tick=()=>new Promise(r=>requestAnimationFrame(()=>setTimeout(r,30)));
+const fail=t=>{msg.classList.add('err');st.textContent=t;pb.parentNode.style.display='none'};
+prog(10);
+try{
+const THREE=await import('three');
+const {OrbitControls}=await import('three/addons/controls/OrbitControls.js');
+const {RoomEnvironment}=await import('three/addons/environments/RoomEnvironment.js');
+
+/* ---------- renderer / scene ---------- */
+let renderer;
+try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true})}catch(e){fail('WebGL is not available on this device or browser');throw e}
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.3;
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+document.body.prepend(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x090b0b);scene.fog=new THREE.FogExp2(0x090b0b,.028);
+const pm=new THREE.PMREMGenerator(renderer);
+scene.environment=pm.fromScene(new RoomEnvironment(),0.04).texture;
+const cam=new THREE.PerspectiveCamera(32,1,.1,100);
+const target=new THREE.Vector3(0,.9,0);
+
+const key=new THREE.DirectionalLight(0xffe8c8,3.4);key.position.set(-4.2,7,7);key.target.position.set(0,-.5,0);
+key.castShadow=true;key.shadow.mapSize.set(2048,2048);Object.assign(key.shadow.camera,{left:-6,right:6,top:6,bottom:-6,near:1,far:30});
+key.shadow.bias=-.0005;key.shadow.normalBias=.02;
+const fill=new THREE.DirectionalLight(0x9fb4d0,.5);fill.position.set(-5,1,3);
+const rimF=new THREE.DirectionalLight(0xffffff,1.3);rimF.position.set(0,3,-6);
+scene.add(key,key.target,fill,rimF);
+// V3 environment: hemisphere light, cool rim, soft point fill and the dark floor
+scene.add(new THREE.HemisphereLight(0xdce5df,0x29231b,1.8));
+const rim3=new THREE.DirectionalLight(0x9cb6b4,4);rim3.position.set(5.6,2.8,-5.6);scene.add(rim3);
+const fill3=new THREE.PointLight(0xb9c5bb,32,13);fill3.position.set(2.8,-2.8,4.2);scene.add(fill3);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(100,100),new THREE.MeshStandardMaterial({color:0x090c0c,roughness:.95}));
+floor.rotation.x=-Math.PI/2;floor.position.y=-3;floor.receiveShadow=true;scene.add(floor);
+
+prog(35,'PREPARING THE SCENE');await tick();
+/* ---------- procedural textures ---------- */
+const rnd=(a,b)=>a+Math.random()*(b-a);
+function bumpTex(n,dents,scr,rx,ry){
+  const c=document.createElement('canvas');c.width=c.height=n;const g=c.getContext('2d');
+  g.fillStyle='#808080';g.fillRect(0,0,n,n);
+  for(let i=0;i<dents;i++){const x=rnd(0,n),y=rnd(0,n),r=rnd(3,22),d=Math.random()<.6,
+    gr=g.createRadialGradient(x,y,0,x,y,r);
+    gr.addColorStop(0,d?'rgba(40,40,40,.5)':'rgba(220,220,220,.3)');gr.addColorStop(1,'rgba(128,128,128,0)');
+    g.fillStyle=gr;g.fillRect(x-r,y-r,2*r,2*r)}
+  for(let i=0;i<scr;i++){const x=rnd(0,n),y=rnd(0,n),a=rnd(0,6.28),l=rnd(8,60);
+    g.strokeStyle=Math.random()<.5?'rgba(30,30,30,.35)':'rgba(200,200,200,.25)';
+    g.beginPath();g.moveTo(x,y);g.lineTo(x+Math.cos(a)*l,y+Math.sin(a)*l);g.stroke()}
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(rx,ry);t.anisotropy=4;return t}
+const LINES=["Tara","мистри чипс","2005-07-30"];
+function textCanvas(bg,fg,blur){
+  const n=1024,c=document.createElement('canvas');c.width=c.height=n;const g=c.getContext('2d');
+  g.fillStyle=bg;g.fillRect(0,0,n,n);g.filter=blur;g.fillStyle=fg;g.textAlign='center';g.textBaseline='middle';
+  g.font='bold 78px Georgia,"Times New Roman",serif';if('letterSpacing' in g)g.letterSpacing='3px';
+  LINES.forEach((t,i)=>g.fillText(t,n/2,n/2+(i-1)*125));return c}
+
+/* ---------- materials (dark oxidised field, bronze emblem/rim, dark silver bail) ---------- */
+const mk=(o,t)=>new THREE.MeshStandardMaterial({envMapIntensity:.6,roughness:1,roughnessMap:t,bumpMap:t,...o});
+const tBrass=bumpTex(512,260,30,2,2),tRim=bumpTex(512,500,60,8,1),tPlate=bumpTex(512,300,25,1,1);
+const tarnish=(base,dark,light,blots,rx,ry)=>{const n=512,c=document.createElement('canvas');c.width=c.height=n;const g=c.getContext('2d');
+  g.fillStyle=base;g.fillRect(0,0,n,n);
+  for(let i=0;i<blots;i++){const x=rnd(0,n),y=rnd(0,n),r=rnd(8,60),gr=g.createRadialGradient(x,y,0,x,y,r),col=Math.random()<.7?dark:light;
+    gr.addColorStop(0,col+'66');gr.addColorStop(1,col+'00');g.fillStyle=gr;g.fillRect(x-r,y-r,2*r,2*r)}
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(rx,ry);t.anisotropy=4;return t};
+const mkB=(map,t,o)=>mk({map,color:0xffffff,metalness:1,envMapIntensity:.9,...o},t);
+// everything is aged brass: bright worn brass on raised parts, darker tarnished brass in the recessed field
+const brass=mkB(tarnish('#b8965b','#5e4726','#dcbe82',160,2,2),tBrass,{bumpScale:1.2});
+const chainMat=mkB(tarnish('#b3914f','#5a4422','#d6b87a',160,3,1),tBrass,{bumpScale:.6});
+const rimMat=mkB(tarnish('#ab8957','#4d3a1e','#d2b278',220,8,1),tRim,{bumpScale:1});
+const plateMat=mkB(tarnish('#6a5632','#2c2112','#8d7440',260,1,1),tPlate,{bumpScale:1.4,envMapIntensity:.7});
+const silver=mkB(tarnish('#8f784a','#3e2f18','#b89f68',100,1,1),tBrass,{bumpScale:1});
+const engrMap=(()=>{const base=tarnish('#aa8954','#5a4524','#d6b87c',220,1,1).image,n=1024,c=document.createElement('canvas');c.width=c.height=n;const g=c.getContext('2d');
+  g.drawImage(base,0,0,n,n);g.textAlign='center';g.textBaseline='middle';g.font='bold 78px Georgia,"Times New Roman",serif';if('letterSpacing' in g)g.letterSpacing='3px';
+  const draw=(d,col)=>{g.fillStyle=col;LINES.forEach((t,i)=>g.fillText(t,n/2+d,n/2+d+(i-1)*125))};
+  draw(2,'rgba(238,208,150,.45)');draw(0,'rgba(52,36,16,.7)'); // lit lower edge + shaded engraving
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=4;return t})();
+const engrBump=new THREE.CanvasTexture(textCanvas('#8c8c8c','#101010','blur(1.5px)'));
+const engrMat=new THREE.MeshStandardMaterial({color:0xffffff,map:engrMap,metalness:1,roughness:.4,bumpMap:engrBump,bumpScale:2,envMapIntensity:.9,polygonOffset:true,polygonOffsetFactor:-1});
+
+const necklace=new THREE.Group(),swing=new THREE.Group();swing.add(necklace);scene.add(swing);
+const G={body:new THREE.Group(),emblem:new THREE.Group(),rear:new THREE.Group(),bail:new THREE.Group(),chain:new THREE.Group()};
+Object.entries(G).forEach(([k,g])=>{g.name=k;necklace.add(g)});
+const add=(g,geo,mat,x=0,y=0,z=0)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;g.add(m);return m};
+
+prog(55,'FORGING THE PENDANT');await tick();
+/* ---------- pendant body ---------- */
+const plate=add(G.body,new THREE.CylinderGeometry(1,1,.12,96).rotateX(Math.PI/2),plateMat);
+const rg=new THREE.TorusGeometry(1,.1,20,128);
+{const p=rg.attributes.position,nm=rg.attributes.normal,v=new THREE.Vector3();
+ for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i);
+  const n=(Math.sin(v.x*37+v.z*11)*Math.sin(v.y*41-v.x*7)+Math.sin(v.y*83+v.z*53)*.5)*.0025; // hammered facets
+  p.setXYZ(i,v.x+nm.getX(i)*n,v.y+nm.getY(i)*n,v.z+nm.getZ(i)*n)}
+ rg.computeVertexNormals()}
+add(G.body,rg,rimMat);
+
+/* ---------- rear: engraved motto (relief-mapped) ---------- */
+const back=add(G.rear,new THREE.CircleGeometry(.88,96),engrMat,0,0,-.0615);back.rotation.y=Math.PI;back.castShadow=false;
+
+prog(68,'CASTING THE EMBLEM');await tick();
+/* ---------- emblem (shapes in px of the reference photo, y up) ---------- */
+const shp=(pts,mir)=>{const s=new THREE.Shape();pts.forEach(([x,y],i)=>{x=mir?-x:x;i?s.lineTo(x,y):s.moveTo(x,y)});return s};
+const half=[[[13.8,2.3],[13.8,0.3],[13.0,-1.3],[13.0,-2.6],[11.4,-5.4],[8.1,-8.6],[4.5,-10.3],[4.5,-92.2],[11.8,-78.8],[11.8,-24.5],[12.2,-24.1],[13.0,-24.5],[18.3,-32.2],[24.8,-40.3],[24.3,-37.9],[21.9,-32.2],[21.9,-31.0],[13.8,-10.3],[14.2,-9.5],[15.0,-9.0],[32.9,-22.4],[36.9,-24.9],[36.9,-24.1]],[[4.5,23.0],[35.7,-11.1],[37.7,-11.5],[39.8,-11.1],[55.6,-3.4],[61.7,-0.9],[62.9,-0.1],[62.9,3.1],[57.6,5.6],[52.3,7.2],[41.8,11.6],[39.8,12.0],[36.5,13.7],[34.5,14.1],[31.2,15.7],[12.6,22.6],[11.8,23.4],[11.8,27.5],[12.2,27.9],[75.9,13.7],[77.9,14.5],[99.0,35.6],[97.4,39.6],[10.5,40.0],[10.1,40.9],[15.8,51.0],[4.5,41.7]]]; // right half traced from the supplied vector logo; the left is its mirror
+const ex={depth:4.5,bevelEnabled:true,bevelThickness:1,bevelSize:.8,bevelSegments:2,curveSegments:24};
+half.flatMap(p=>[shp(p),shp(p,true)]).forEach(sh=>{const m=new THREE.Mesh(new THREE.ExtrudeGeometry(sh,ex),brass);m.castShadow=m.receiveShadow=true;G.emblem.add(m)});
+G.emblem.scale.setScalar(.00804);G.emblem.position.z=.06;
+
+/* ---------- bail + hardware ---------- */
+const BY=1.14;
+add(G.bail,new THREE.TorusGeometry(.085,.03,16,40).rotateY(Math.PI/2),silver,0,BY,0);
+add(G.bail,new THREE.CylinderGeometry(.05,.065,.17,20),silver,0,1.04,0);
+
+prog(80,'LINKING THE CHAIN');await tick();
+/* ---------- chain: rolo links, alternating orientation, closed loop through the bail ---------- */
+const R=.055,T=.024,S=2*R-2*T,y0=BY+R,YP=16,ZP=0,H=YP-y0,cr=.12,pts=[new THREE.Vector3(0,y0,0)]; // small, thick rolo links
+const wd=t=>.11+.03*t+.3*Math.pow(Math.sin(Math.PI*t),1.1); // both strands stay close, like a necklace held up by its ends
+const side=(m,t)=>new THREE.Vector3(m*wd(t)*(1+.08*m*Math.sin(t*5)),y0+t*H,m*.04+.15*Math.sin(t*2.6));
+for(let i=1;i<=24;i++)pts.push(side(1,i/24));
+for(let i=1;i<=3;i++){const f=Math.PI*(.2+.6*i/4);pts.push(new THREE.Vector3(cr*Math.cos(f),YP+cr*Math.sin(f),ZP))} // top of the loop, off-screen
+for(let i=24;i>=1;i--)pts.push(side(-1,i/24));
+swing.position.set(0,YP,ZP);necklace.position.set(0,-YP,-ZP);
+const curve=new THREE.CatmullRomCurve3(pts,true,'centripetal');
+const count=Math.round(curve.getLength()/S/2)*2;
+const lg=new THREE.TorusGeometry(R,T,10,24);
+const evenM=new THREE.InstancedMesh(lg,chainMat,count/2),oddM=new THREE.InstancedMesh(lg,chainMat,count/2);
+const Z=new THREE.Vector3(0,0,1),mat=new THREE.Matrix4(),roll=new THREE.Matrix4(),B=new THREE.Vector3(),Nn=new THREE.Vector3();
+for(let i=0;i<count;i++){
+  const u=i/count,p=curve.getPointAt(u),t=curve.getTangentAt(u);
+  B.copy(Z).addScaledVector(t,-Z.dot(t)).normalize();Nn.crossVectors(B,t);
+  if(i%2===0)mat.makeBasis(t,Nn,B);else mat.makeBasis(t,B,Nn.clone().negate());
+  mat.multiply(roll.makeRotationX(rnd(-.12,.12)));mat.setPosition(p);(i%2?oddM:evenM).setMatrixAt(i>>1,mat)}
+[evenM,oddM].forEach(m=>{m.castShadow=m.receiveShadow=true;G.chain.add(m)});
+
+prog(92,'FINAL TOUCHES');await tick();
+/* ---------- camera, controls, tweens ---------- */
+const controls=new OrbitControls(cam,renderer.domElement);
+Object.assign(controls,{enableDamping:true,dampingFactor:.07,enablePan:false,rotateSpeed:.7,minPolarAngle:.35,maxPolarAngle:Math.PI-.35});
+controls.target.copy(target);
+const baseR=()=>Math.max(8,3.1/(2*Math.tan(cam.fov*Math.PI/360)*cam.aspect));
+let k=baseR(),tw=null,sway=true;
+const HOME={theta:.25,phi:1.5};
+function place(th,ph,r){cam.position.setFromSpherical(new THREE.Spherical(r,ph,th)).add(target)}
+function resize(){const w=innerWidth,h=innerHeight;renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(w,h);
+  cam.aspect=w/h;cam.updateProjectionMatrix();const nk=baseR();
+  cam.position.sub(target).multiplyScalar(nk/k).add(target);k=nk;controls.minDistance=k*.3;controls.maxDistance=k*2.2}
+function goTo(th,ph,r,sw){
+  const s=new THREE.Spherical().setFromVector3(cam.position.clone().sub(target));
+  tw={s,dt:Math.atan2(Math.sin(th-s.theta),Math.cos(th-s.theta)),dp:ph-s.phi,dr:r-s.radius,t:0};sway=sw}
+controls.addEventListener('start',()=>{tw=null;sway=false});
+const btn=(id,fn)=>document.getElementById(id).addEventListener('click',fn);
+btn('bF',()=>goTo(0,HOME.phi,cam.position.distanceTo(target),false));
+btn('bB',()=>goTo(Math.PI,HOME.phi,cam.position.distanceTo(target),false));
+btn('bR',()=>goTo(HOME.theta,HOME.phi,k,true));
+addEventListener('resize',resize);addEventListener('orientationchange',()=>setTimeout(resize,200));
+resize();place(HOME.theta,HOME.phi,k);
+
+const clock=new THREE.Clock();let first=true;
+renderer.setAnimationLoop(()=>{
+  const dt=Math.min(clock.getDelta(),.05),t=clock.elapsedTime;
+  if(tw){tw.t=Math.min(1,tw.t+dt/1.0);const e=tw.t<.5?4*tw.t**3:1-(-2*tw.t+2)**3/2;
+    place(tw.s.theta+tw.dt*e,tw.s.phi+tw.dp*e,tw.s.radius+tw.dr*e);if(tw.t>=1)tw=null}
+  {const d=1-Math.min(1,dt*3);swing.rotation.z=sway?Math.sin(t*.8)*.012:swing.rotation.z*d;swing.rotation.y=sway?Math.sin(t*.55)*.28:swing.rotation.y*d}
+  controls.update();renderer.render(scene,cam);
+  if(first){first=false;prog(100,'READY');setTimeout(()=>msg.classList.add('hide'),250)}});
+addEventListener('pagehide',()=>{renderer.setAnimationLoop(null);scene.traverse(o=>{o.geometry?.dispose()});renderer.dispose()});
+}catch(e){console.error(e);if(!msg.classList.contains('err'))fail('Could not load the 3D engine. Check your internet connection and reload')}
+</script></body></html>
